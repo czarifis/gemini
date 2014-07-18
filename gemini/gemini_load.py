@@ -17,6 +17,11 @@ import datetime
 
 
 def load(parser, args):
+
+    import time
+
+    start = time.time()
+    
     if (args.db is None or args.vcf is None):
         parser.print_help()
         exit("ERROR: load needs both a VCF file and a database file\n")
@@ -49,6 +54,11 @@ def load(parser, args):
         load_multicore(args)
     else:
         load_singlecore(args)
+
+    end = time.time()
+    print "time measured: ", end - start, "seconds"
+
+
 
 def load_singlecore(args):
     # create a new gemini loader and populate
