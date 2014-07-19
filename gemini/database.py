@@ -365,11 +365,14 @@ def insert_sample(cursor, sample_list):
     Populate the samples with sample ids, names, and
     other indicative information.
     """
+    print 'inserting samples into sqlite'
     placeholders = ",".join(list(repeat("?", len(sample_list))))
     cursor.execute("BEGIN TRANSACTION")
     cursor.execute("insert into samples values "
                    "({0})".format(placeholders), sample_list)
     cursor.execute("END")
+
+    print 'execute END'
 
 def insert_gene_detailed(cursor, table_contents):
     cursor.execute("BEGIN TRANSACTION")
@@ -377,6 +380,8 @@ def insert_gene_detailed(cursor, table_contents):
                                                           ?,?,?,?,?,?,?,?,?, \
                                                           ?)',
                         table_contents)
+    print 'gene_detailed table contents:'
+    print len(table_contents)
     cursor.execute("END")
     
 
@@ -390,6 +395,7 @@ def insert_gene_summary(cursor, contents):
 def insert_resources(cursor, resources):
     """Populate table of annotation resources used in this database.
     """
+    print 'Populating table of annotation resources used in this database.'
     cursor.execute("BEGIN TRANSACTION")
     cursor.executemany('''insert into resources values (?,?)''', resources)
     cursor.execute("END")

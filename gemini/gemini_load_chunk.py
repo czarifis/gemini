@@ -41,29 +41,35 @@ class GeminiLoader(object):
         # load sample information
 
         if not self.args.no_genotypes and not self.args.no_load_genotypes:
+            print 'no_genotypes and no_load_genotypes'
             # load the sample info from the VCF file.
             self._prepare_samples()
             # initialize genotype counts for each sample
             self._init_sample_gt_counts()
             self.num_samples = len(self.samples)
         else:
+            print 'both genotypes and load_genotypes'
             self.num_samples = 0
 
         self.buffer_size = buffer_size
         self._get_anno_version()
         
         if not args.skip_gene_tables:
+            print "not skipping gene_tables..."
             self._get_gene_detailed()
             self._get_gene_summary()
+            print 'done with genes'
 
         if self.args.anno_type == "VEP":
             self._effect_fields = self._get_vep_csq(self.vcf_reader)
         else:
+            print 'no VEP annotation'
             self._effect_fields = []
 
     def store_resources(self):
         """Create table of annotation resources used in this gemini database.
         """
+        print 'Creating table of annotation resources used in this gemini database.'
         database.insert_resources(self.c, annotations.get_resources())
 
     def store_version(self):
@@ -189,6 +195,7 @@ class GeminiLoader(object):
         if self.args.anno_type == "snpEff":
             try:
                 version_string = self.vcf_reader.metadata['SnpEffVersion']
+                print "the SnpEffVersion is:",version_string
             except KeyError:
                 error = ("\nWARNING: VCF is not annotated with snpEff, check documentation at:\n"\
                 "http://gemini.readthedocs.org/en/latest/content/functional_annotation.html#stepwise-installation-and-usage-of-snpeff\n")
@@ -478,17 +485,23 @@ class GeminiLoader(object):
         private method to load sample information
         """
         if not self.args.no_genotypes:
+            print 'loading sample information'
             self.samples = self.vcf_reader.samples
             self.sample_to_id = {}
+            print "printing samples: \n", self.samples
             for idx, sample in enumerate(self.samples):
                 self.sample_to_id[sample] = idx + 1
 
         self.ped_hash = {}
         if self.args.ped_file is not None:
+            print "printing ped file: \n", self.ped_hash
             self.ped_hash = load_ped_file(self.args.ped_file)
+        else:
+            print 'no ped files(?) apparently!'
 
         sample_list = []
         for sample in self.samples:
+            print "sample: ", sample, " id ", self.sample_to_id[sample]
             i = self.sample_to_id[sample]
             if sample in self.ped_hash:
                 fields = self.ped_hash[sample]
@@ -499,6 +512,9 @@ class GeminiLoader(object):
             else:
                 # if there is no ped file given, just fill in the name and
                 # sample_id and set the other required fields to None
+
+                print 'there is no ped file given, just filling in the name and'
+                print 'sample_id and set the other required fields to None'
                 sample_list = [i, None, sample]
                 sample_list += list(repeat(None, len(default_ped_fields) - 2))
             database.insert_sample(self.c, sample_list)
@@ -511,24 +527,72 @@ class GeminiLoader(object):
         i = 0
         table_contents = detailed_list = []
         
+        
         config = read_gemini_config()
         path_dirname = config["annotation_dir"]
         file_handle = os.path.join(path_dirname, 'detailed_gene_table_v75')
         
-        for line in open(file_handle, 'r'):
-            field = line.strip().split("\t")
-            if not field[0].startswith("Chromosome"):
-                i += 1
-                table = gene_table.gene_detailed(field)
-                detailed_list = [str(i),table.chrom,table.gene,table.is_hgnc,
-                                 table.ensembl_gene_id,table.ensembl_trans_id, 
-                                 table.biotype,table.trans_status,table.ccds_id, 
-                                 table.hgnc_id,table.entrez,table.cds_length,table.protein_length, 
-                                 table.transcript_start,table.transcript_end,
-                                 table.strand,table.synonym,table.rvis,table.mam_phenotype]
-                table_contents.append(detailed_list)
-        database.insert_gene_detailed(self.c, table_contents)
+        header= ['uid','chrom','gene','is_hgnc','ensembl_gene_id','transcript','biotype','transcript_status','ccds_id','hgnc_id',\
+        'entrez_id','cds_length','protein_length','transcript_start','transcript_end','strand','synonym','rvis_pct','mam_phenotype_id']
+
+
+        import csv
+        with open('gene_detailed.csv', 'wb') as csvfile:
+            rowwriter = csv.writer(csvfile, delimiter=',',
+                                    quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            rowwriter.writerow(header)
+            
+
+            for line in open(file_handle, 'r'):
+                field = line.strip().split("\t")
+                if not field[0].startswith("Chromosome"):
+                    i += 1
+                    table = gene_table.gene_detailed(field)
+                    detailed_list = [str(i),table.chrom,table.gene,table.is_hgnc,
+                                     table.ensembl_gene_id,table.ensembl_trans_id, 
+                                     table.biotype,table.trans_status,table.ccds_id, 
+                                     table.hgnc_id,table.entrez,table.cds_length,table.protein_length, 
+                                     table.transcript_start,table.transcript_end,
+                                     table.strand,table.synonym,table.rvis,table.mam_phenotype]
+                    rowwriter.writerow(detailed_list)
+                    # if(i==5):
+                    #     print detailed_list
+                    # table_contents.append(detailed_list)
+            #database.insert_gene_detailed(self.c, table_contents)
         
+
+
+        """
+        # This is the schema of the table gene_detailed
+
+        cursor.execute('''create table if not exists gene_detailed (       \
+                   uid integer,                                        \
+                   chrom text,                                         \
+                   gene text,                                          \
+                   is_hgnc bool,                                       \
+                   ensembl_gene_id text,                               \
+                   transcript text,                                    \
+                   biotype text,                                       \
+                   transcript_status text,                             \
+                   ccds_id text,                                       \
+                   hgnc_id text,                                       \
+                   entrez_id text,                                     \
+                   cds_length text,                                    \
+                   protein_length text,                                \
+                   transcript_start text,                              \
+                   transcript_end text,                                \
+                   strand text,                                        \
+                   synonym text,                                       \
+                   rvis_pct float,                                     \
+                   mam_phenotype_id text,                              \
+                   PRIMARY KEY(uid ASC))''')
+
+        """
+        
+        
+            
+
+
     def _get_gene_summary(self):
         """
         define a gene summary table
@@ -565,7 +629,7 @@ class GeminiLoader(object):
     def _init_sample_gt_counts(self):
         """
         Initialize a 2D array of counts for tabulating
-        the count of each genotype type for eaxh sample.
+        the count of each genotype type for each sample.
 
         The first dimension is one bucket for each sample.
         The second dimension (size=4) is a count for each gt type.

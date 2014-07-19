@@ -1,0 +1,2 @@
+#!/bin/bash
+gemini load -v /home/scidb/gemini/share/gemini/gemini/test/test3.snpeff.vcf -t snpEff ~/test3.db
